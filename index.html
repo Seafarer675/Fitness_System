@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>健身知識圖譜</title>
+<style>
+:root{--bg:#f4f6f8;--panel:#fff;--ink:#18212f;--muted:#697586;--line:#e3e8ef;--accent:#2864dc;--accent2:#eaf1ff;--good:#16845b;--bad:#b42318}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{background:#101c2d;color:white;padding:28px max(20px,calc((100vw - 1180px)/2))}
+header h1{margin:0;font-size:27px}header p{margin:7px 0 0;color:#c8d2df}
+main{max-width:1180px;margin:24px auto;padding:0 18px 48px}.topbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:18px}
+input,select,button{font:inherit;border-radius:9px;border:1px solid var(--line);padding:10px 12px;background:#fff;color:var(--ink)}
+input,select{width:100%;min-width:0}button{cursor:pointer;font-weight:650;background:var(--accent);border-color:var(--accent);color:#fff}button.secondary{background:white;color:var(--ink);border-color:var(--line)}button:hover{filter:brightness(.97)}
+.api{flex:1;min-width:260px}.status{font-size:13px;color:var(--muted)}.status.ok{color:var(--good)}.status.err{color:var(--bad)}
+.tabs{display:flex;gap:8px;overflow:auto;padding-bottom:10px;margin-bottom:16px}.tab{white-space:nowrap}.tab.active{background:#17263c;border-color:#17263c}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:20px;margin-bottom:16px;box-shadow:0 3px 14px #18212f08}
+.panel h2{font-size:19px;margin:0 0 6px}.sub{color:var(--muted);margin:0 0 18px;font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.field label{display:block;font-size:13px;font-weight:650;margin-bottom:6px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.results{display:grid;grid-template-columns:repeat(auto-fit,minmax(245px,1fr));gap:12px;margin-top:16px}.exercise{border:1px solid var(--line);border-radius:12px;padding:15px;background:#fff}.exercise h3{margin:0 0 6px;font-size:17px}.pill{display:inline-block;background:var(--accent2);color:#244fa7;padding:3px 8px;border-radius:99px;font-size:12px;margin:3px 4px 3px 0}.muted{color:var(--muted);font-size:13px}.empty{padding:25px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:12px;margin-top:14px}
+.help-slot{margin-top:12px;border-top:1px dashed var(--line);padding-top:10px;font-size:13px;color:var(--muted)}.help-slot a{color:var(--accent);font-weight:650;text-decoration:none}.help-slot a:hover{text-decoration:underline}
+pre{white-space:pre-wrap;word-break:break-word;background:#101c2d;color:#e8edf5;padding:14px;border-radius:10px;overflow:auto;font-size:12px}.message{padding:11px 13px;background:#fff8e6;border:1px solid #f3dfa4;border-radius:10px;margin-top:12px}
+@media(max-width:760px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}header h1{font-size:23px}}
+@media(max-width:480px){.grid{grid-template-columns:1fr}.panel{padding:15px}}
+</style>
+</head>
+<body>
+<header><h1>健身知識圖譜</h1><p>動作查詢・肌群探索・替代動作・動作比較・課表草案</p></header>
+<main>
+  <div class="topbar">
+    <div class="api"><label for="apiBase" class="muted">API 基底網址</label><input id="apiBase" value="http://127.0.0.1:8000" placeholder="例如 http://127.0.0.1:8000"></div>
+    <button id="testBtn" class="secondary" style="align-self:end">測試連線</button>
+    <span id="status" class="status" style="align-self:end">尚未測試 API</span>
+  </div>
+  <nav class="tabs" id="tabs">
+    <button class="tab active" data-view="search">動作搜尋</button>
+    <button class="tab secondary" data-view="detail">動作詳情</button>
+    <button class="tab secondary" data-view="alternatives">替代動作</button>
+    <button class="tab secondary" data-view="muscle">肌群反查</button>
+    <button class="tab secondary" data-view="compare">動作比較</button>
+    <button class="tab secondary" data-view="graph">器材關係</button>
+    <button class="tab secondary" data-view="plan">產生課表</button>
+  </nav>
+  <section id="view"></section>
+  <section class="panel" id="outputPanel" hidden><h2>API 回應</h2><p class="sub">顯示目前請求回傳的原始 JSON，方便除錯。</p><pre id="raw"></pre></section>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+const state = {view:"search"};
+const helpText = `教學連結（選填）`;
+function helpSlot(key){
+  // TODO: 在此設定各動作／功能的教學網址；留空時顯示可插入連結的標籤空位。
+  const urls = {
+    search: "", detail: "", alternatives: "", muscle: "", compare: "", graph: "", plan: ""
+  };
+  const url = urls[key] || "";
+  return `<div class="help-slot">📘 操作教學：${url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">觀看教學</a>` : `<span>【教學連結預留位置】</span>`}</div>`;
+}
+function esc(v){return String(v ?? "").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function val(id){return document.getElementById(id)?.value.trim() || "";}
+function field(id,label,placeholder="",type="text"){return `<div class="field"><label for="${id}">${label}</label><input id="${id}" type="${type}" placeholder="${placeholder}"></div>`}
+function selectField(id,label,options,placeholder="不限"){
+  return `<div class="field"><label for="${id}">${label}</label><select id="${id}"><option value="">${placeholder}</option>${options.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join("")}</select></div>`;
+}
+function section(title,desc,fields,buttonText="查詢"){
+  return `<div class="panel"><h2>${title}</h2><p class="sub">${desc}</p><div class="grid">${fields}</div><div class="actions"><button id="run">${buttonText}</button><button class="secondary" id="clear">清除欄位</button></div>${helpSlot(state.view)}<div id="result"></div></div>`;
+}
+function render(){
+  document.querySelectorAll(".tab").forEach(b=>{b.classList.toggle("active",b.dataset.view===state.view);b.classList.toggle("secondary",b.dataset.view!==state.view)});
+  const difficulty=["初級","中級","高級"]; const roles=["主動肌","協同肌"];
+  const parts=["胸部","背部","肩部","手臂","腿部","臀部","核心"];
+  const equip=["徒手","啞鈴","槓鈴","機械","滑輪"];
+  let html="";
+  switch(state.view){
+    case "search": html=section("多條件動作搜尋","可用部位、肌肉角色、器材與難度組合篩選。選項若與資料庫實際值不同，請改用實際名稱。",field("body_part","訓練部位","例如：胸部")+selectField("role","肌肉角色",roles)+field("equipment","器材","例如：啞鈴")+selectField("difficulty","難度",difficulty));break;
+    case "detail": html=section("動作詳情","輸入資料庫中的完整動作名稱。",field("name","動作名稱","例如：啞鈴臥推"),"取得詳情");break;
+    case "alternatives": html=section("尋找替代動作","指定目標肌肉與可用器材，可選擇排除某個動作。",field("muscle","目標肌肉","例如：胸大肌")+field("equipment","可用器材","例如：啞鈴")+field("exclude","排除動作（選填）","動作完整名稱")+selectField("role","肌肉角色",roles),"尋找替代動作");break;
+    case "muscle": html=section("肌群反向查詢","查詢哪些動作會訓練指定肌肉。",field("name","肌肉名稱","例如：胸大肌")+selectField("role","肌肉角色",roles),"查詢動作");break;
+    case "compare": html=section("動作比較","比較兩個動作的肌群、器材與難度。",field("name1","第一個動作","完整名稱")+field("name2","第二個動作","完整名稱"),"比較");break;
+    case "graph": html=section("器材關係探索","查詢使用指定器材的動作及其目標肌群。",field("name","器材名稱","例如：啞鈴"),"探索關係");break;
+    case "plan": html=section("簡易課表產生器","以訓練部位、可用器材、每週天數與每日動作數產生課表草案。",field("body_parts","訓練部位（逗號分隔）","例如：胸部,肩部")+field("equipment","可用器材（逗號分隔）","例如：啞鈴,徒手")+field("days","每週訓練天數","1–7","number")+field("exercises_per_day","每天動作數","1–12","number")+selectField("difficulty","難度",difficulty),"產生課表");break;
+  }
+  $("#view").innerHTML=html;
+  $("#run").addEventListener("click",runAction);
+  $("#clear").addEventListener("click",()=>{document.querySelectorAll("#view input,#view select").forEach(x=>x.value="");$("#result").innerHTML="";});
+}
+function base(){return $("#apiBase").value.trim().replace(/\/+$/,"");}
+async function request(path, options={}){
+  const response=await fetch(base()+path,{...options,headers:{"Content-Type":"application/json",...(options.headers||{})}});
+  let data; const text=await response.text(); try{data=text?JSON.parse(text):{};}catch{data={detail:text};}
+  if(!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
+  return data;
+}
+function query(params){const p=new URLSearchParams();Object.entries(params).forEach(([k,v])=>{if(v!==""&&v!==undefined&&v!==null)p.set(k,v)});return p.toString();}
+function chips(arr){return (arr||[]).filter(Boolean).map(x=>`<span class="pill">${esc(typeof x==="string"?x:(x.name||JSON.stringify(x)))}</span>`).join("")||'<span class="muted">無資料</span>'}
+function cards(rows){
+  if(!rows?.length)return '<div class="empty">沒有找到符合條件的資料。</div>';
+  return `<div class="results">${rows.map(e=>`<article class="exercise"><h3>${esc(e.name||e.exercise||"未命名")}</h3><div class="muted">難度：${esc(e.difficulty||"未提供")}</div><p><b>目標肌群</b><br>${chips((e.targets||[]).filter(Boolean).map(t=>`${t.name}${t.role?`（${t.role}）`:""}`))}</p><p><b>器材</b><br>${chips(e.equipment||[])}</p></article>`).join("")}</div>`;
+}
+function exerciseDetail(e){
+ return `<article class="exercise"><h3>${esc(e.name)}</h3><div class="muted">難度：${esc(e.difficulty||"未提供")}</div><p><b>目標肌群</b><br>${chips((e.targets||[]).filter(Boolean).map(t=>`${t.name}${t.bodyPart?`／${t.bodyPart}`:""}${t.role?`（${t.role}）`:""}`))}</p><p><b>器材</b><br>${chips(e.equipment||[])}</p></article>`;
+}
+function compareResult(d){
+ const c=d.comparison||{};
+ const group=(title,items)=>`<div class="exercise"><b>${title}</b><p>${chips(items)}</p></div>`;
+ return `<div class="results">${exerciseDetail(d.exercise_1)}${exerciseDetail(d.exercise_2)}${group("共同肌群",c.common_muscles)}${group("僅動作一訓練",c.only_in_exercise_1)}${group("僅動作二訓練",c.only_in_exercise_2)}${group("共同器材",c.common_equipment)}${group("僅動作一使用的器材",c.only_equipment_for_exercise_1)}${group("僅動作二使用的器材",c.only_equipment_for_exercise_2)}<div class="exercise"><b>難度是否相同</b><p>${c.same_difficulty?"是":"否"}</p></div></div>`;
+}
+async function runAction(){
+ const btn=$("#run"), result=$("#result"); btn.disabled=true;btn.textContent="查詢中…";result.innerHTML="";
+ try{
+  let d, path, opts={};
+  switch(state.view){
+   case "search":
+    path="/exercises?"+query({body_part:val("body_part"),role:val("role"),equipment:val("equipment"),difficulty:val("difficulty")});d=await request(path);result.innerHTML=`<p class="muted">共 ${d.count??0} 筆</p>${cards(d.data)}`;break;
+   case "detail":
+    path="/exercises/"+encodeURIComponent(val("name"));d=await request(path);result.innerHTML=exerciseDetail(d)+helpSlot("detail");break;
+   case "alternatives":
+    path="/exercises/alternatives?"+query({muscle:val("muscle"),equipment:val("equipment"),exclude:val("exclude"),role:val("role")});d=await request(path);result.innerHTML=`<p class="muted">共 ${d.count??0} 筆</p>${cards(d.data)}`;break;
+   case "muscle":
+    path="/muscles/"+encodeURIComponent(val("name"))+"/exercises?"+query({role:val("role")});d=await request(path);result.innerHTML=`<p class="muted">共 ${d.count??0} 筆</p>${cards(d.data)}`;break;
+   case "compare":
+    path="/exercises/compare?"+query({name1:val("name1"),name2:val("name2")});d=await request(path);result.innerHTML=compareResult(d);break;
+   case "graph":
+    path="/graph/equipment/"+encodeURIComponent(val("name"))+"/exercises";d=await request(path);result.innerHTML=`<p class="muted">共 ${d.count??0} 筆</p>${d.data?.length?`<div class="results">${d.data.map(e=>`<article class="exercise"><h3>${esc(e.exercise)}</h3><div class="muted">器材：${esc(e.equipment)}｜難度：${esc(e.difficulty||"未提供")}</div><p><b>目標肌群</b><br>${chips((e.targets||[]).filter(Boolean).map(t=>`${t.name}${t.role?`（${t.role}）`:""}`))}</p></article>`).join("")}</div>`:'<div class="empty">沒有找到相關資料。</div>'}`;break;
+   case "plan":
+    const body_parts=val("body_parts").split(/[,，]/).map(x=>x.trim()).filter(Boolean), equipment=val("equipment").split(/[,，]/).map(x=>x.trim()).filter(Boolean);
+    if(!body_parts.length||!equipment.length)throw new Error("請至少填寫一個訓練部位與一項器材。");
+    opts={method:"POST",body:JSON.stringify({body_parts,equipment,days:Number(val("days")||3),exercises_per_day:Number(val("exercises_per_day")||4),difficulty:val("difficulty")||null})};
+    d=await request("/plans/generate",opts);
+    result.innerHTML=`<p>${esc(d.message||"已產生課表")}</p><p class="muted">符合條件的動作：${d.candidate_count??0} 個</p>${(d.plans||[]).map(day=>`<div class="exercise"><h3>第 ${day.day} 天</h3>${cards(day.exercises)}</div>`).join("")||'<div class="empty">沒有可用課表，請檢查輸入名稱是否與資料庫一致。</div>'}`;break;
+  }
+  $("#raw").textContent=JSON.stringify(d,null,2);$("#outputPanel").hidden=false;
+ }catch(e){result.innerHTML=`<div class="message">查詢失敗：${esc(e.message)}<br><span class="muted">請確認 API 已啟動、網址正確，且輸入值與資料庫名稱一致。</span></div>`;$("#raw").textContent=JSON.stringify({error:e.message},null,2);$("#outputPanel").hidden=false;}
+ finally{btn.disabled=false;btn.textContent=({"search":"查詢","detail":"取得詳情","alternatives":"尋找替代動作","muscle":"查詢動作","compare":"比較","graph":"探索關係","plan":"產生課表"})[state.view];}
+}
+document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{state.view=b.dataset.view;render()}));
+$("#testBtn").addEventListener("click",async()=>{const s=$("#status");s.textContent="測試中…";s.className="status";try{const d=await request("/");s.textContent="連線成功："+(d.message||"API 正常");s.className="status ok";}catch(e){s.textContent="連線失敗："+e.message;s.className="status err";}});
+render();
+</script>
+</body>
+</html>
