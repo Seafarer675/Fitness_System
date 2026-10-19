@@ -5,7 +5,7 @@ from typing import Optional
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
 from neo4j import GraphDatabase
-
+from fastapi.middleware.cors import CORSMiddleware
 
 # Set these environment variables before starting the server.
 NEO4J_URI = os.getenv("NEO4J_URI", "neo4j://127.0.0.1:7687")
@@ -39,6 +39,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 def run_query(query: str, params: Optional[dict] = None):
     """Run a Cypher query and return records as dictionaries."""
