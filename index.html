@@ -54,7 +54,7 @@ function helpSlot(key){
     search: "", detail: "", alternatives: "", muscle: "", compare: "", graph: "", plan: ""
   };
   const url = urls[key] || "";
-  return `<div class="help-slot">📘 操作教學：${url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">觀看教學</a>` : `<span>【教學連結預留位置】</span>`}</div>`;
+  return `<div class="help-slot"></div>`;
 }
 function esc(v){return String(v ?? "").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 function val(id){return document.getElementById(id)?.value.trim() || "";}
@@ -157,7 +157,7 @@ async function runAction(){
     d=await request("/plans/generate",opts);
     result.innerHTML=`<p>${esc(d.message||"已產生課表")}</p><p class="muted">符合條件的動作：${d.candidate_count??0} 個</p>${(d.plans||[]).map(day=>`<div class="exercise"><h3>第 ${day.day} 天</h3>${cards(day.exercises)}</div>`).join("")||'<div class="empty">沒有可用課表，請檢查輸入名稱是否與資料庫一致。</div>'}`;break;
   }
-  $("#raw").textContent=JSON.stringify(d,null,2);$("#outputPanel").hidden=false;
+  $("#raw").textContent=JSON.stringify(d,null,2);$("#outputPanel").hidden=true;
  }catch(e){result.innerHTML=`<div class="message">查詢失敗：${esc(e.message)}<br><span class="muted">請確認 API 已啟動、網址正確，且輸入值與資料庫名稱一致。</span></div>`;$("#raw").textContent=JSON.stringify({error:e.message},null,2);$("#outputPanel").hidden=false;}
  finally{btn.disabled=false;btn.textContent=({"search":"查詢","detail":"取得詳情","alternatives":"尋找替代動作","muscle":"查詢動作","compare":"比較","graph":"探索關係","plan":"產生課表"})[state.view];}
 }
